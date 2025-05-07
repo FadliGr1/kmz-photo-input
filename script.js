@@ -862,7 +862,7 @@ async function createResultKmz() {
                     // Use random photo
                     const randomIndex = Math.floor(Math.random() * availablePhotos.length);
                     usePhoto = availablePhotos[randomIndex];
-                    photoSource = `Foto acak dari: ${usePhoto.folderName} <em>(Catatan: Foto ini dipilih secara acak)</em>`;
+                    photoSource = `Foto acak dari: ${usePhoto.folderName}`;
                 }
                 
                 if (usePhoto) {
