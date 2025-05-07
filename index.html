@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengelola Foto ZIP ke KMZ</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Loading Overlay -->
+    <!-- Modifikasi pada loading overlay di HTML -->
+<div id="loadingOverlay" class="loading-overlay hidden" style="display: none;">
+    <div class="bg-white p-4 rounded-lg shadow-lg w-80">
+        <h3 class="text-lg font-semibold mb-2 text-center" id="loadingText">Memproses...</h3>
+        <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+            <div id="progressBar" class="progress-bar rounded-full w-0"></div>
+        </div>
+        <p id="loadingSubtext" class="text-sm text-gray-600 text-center">Mohon tunggu sebentar</p>
+    </div>
+</div>
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-blue-600">Pengelola Foto ZIP ke KMZ</h1>
+            <p class="text-gray-600 mt-2">Alat untuk mengekstrak dan mengorganisir foto dari file ZIP ke dalam file KMZ</p>
+        </header>
+
+        <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+            <!-- Stepper -->
+            <div class="flex items-center mb-8">
+                <div class="flex flex-col items-center">
+                    <div id="step1Circle" class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full">1</div>
+                    <span class="text-sm mt-1">Upload ZIP</span>
+                </div>
+                <div class="flex-1 h-1 mx-2 bg-gray-300" id="line1"></div>
+                <div class="flex flex-col items-center">
+                    <div id="step2Circle" class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-600 rounded-full">2</div>
+                    <span class="text-sm mt-1">Kelola Foto</span>
+                </div>
+                <div class="flex-1 h-1 mx-2 bg-gray-300" id="line2"></div>
+                <div class="flex flex-col items-center">
+                    <div id="step3Circle" class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-600 rounded-full">3</div>
+                    <span class="text-sm mt-1">Upload KMZ</span>
+                </div>
+                <div class="flex-1 h-1 mx-2 bg-gray-300" id="line3"></div>
+                <div class="flex flex-col items-center">
+                    <div id="step4Circle" class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-600 rounded-full">4</div>
+                    <span class="text-sm mt-1">Hasil</span>
+                </div>
+            </div>
+
+            <!-- Step 1: Upload ZIP -->
+            <div id="step1" class="step-container active">
+                <h2 class="text-xl font-semibold mb-4">Langkah 1: Upload File ZIP</h2>
+                <p class="mb-4 text-gray-600">Upload file ZIP yang berisi folder-folder dengan foto di dalamnya.</p>
+                
+                <div id="zipDropzone" class="dropzone mb-4">
+                    <div class="mb-3">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <p class="text-gray-500">Drag & drop file ZIP di sini atau</p>
+                    </div>
+                    <input id="zipFileInput" type="file" accept=".zip" class="hidden">
+                    <button id="zipBrowseBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Pilih File
+                    </button>
+                </div>
+                
+                <div id="zipFileInfo" class="hidden bg-gray-100 p-4 rounded-md mb-4">
+                    <h3 class="font-semibold text-lg mb-2">File Terpilih</h3>
+                    <div id="zipFileName" class="text-gray-700"></div>
+                    <div id="zipFileSize" class="text-gray-500 text-sm"></div>
+                </div>
+                
+                <div class="flex justify-end">
+                    <button id="step1NextBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Lanjut
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Manage Photos -->
+            <div id="step2" class="step-container hidden">
+                <h2 class="text-xl font-semibold mb-4">Langkah 2: Kelola Foto</h2>
+                <p class="mb-4 text-gray-600">Sistem akan mengambil foto dari setiap folder dan menamakannya sesuai nama folder.</p>
+                
+                <div id="folderInfoContainer" class="mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-semibold">Daftar Folder dan Foto</h3>
+                        <div class="space-y-2">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Metode pemilihan foto otomatis:</label>
+                                <select id="photoSelectionMethod" class="w-full p-2 border border-gray-300 rounded">
+                                    <option value="fourth">Ambil foto ke-4</option>
+                                    <option value="last">Ambil foto terakhir</option>
+                                    <option value="custom">Ambil foto ke-</option>
+                                </select>
+                            </div>
+                            <div id="customPhotoNumberContainer" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nomor foto:</label>
+                                <input type="number" id="customPhotoNumber" min="1" value="4" class="w-full p-2 border border-gray-300 rounded">
+                            </div>
+                            <button id="applyPhotoSelectionBtn" class="mt-2 w-full px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                                Terapkan ke Semua Folder
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tambahkan folderList di sini -->
+                    <div id="folderList" class="max-h-96 overflow-y-auto border border-gray-200 rounded-md p-4 bg-gray-50">
+                        <div class="text-center text-gray-500">Memuat daftar folder...</div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between">
+                    <button id="step2BackBtn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                        Kembali
+                    </button>
+                    <button id="step2NextBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Lanjut
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Upload KMZ -->
+            <div id="step3" class="step-container hidden">
+                <h2 class="text-xl font-semibold mb-4">Langkah 3: Upload File KMZ</h2>
+                <p class="mb-4 text-gray-600">Upload file KMZ yang berisi placemark untuk diintegrasikan dengan foto.</p>
+                
+                <div id="kmzDropzone" class="dropzone mb-4">
+                    <div class="mb-3">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <p class="text-gray-500">Drag & drop file KMZ di sini atau</p>
+                    </div>
+                    <input id="kmzFileInput" type="file" accept=".kmz" class="hidden">
+                    <button id="kmzBrowseBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Pilih File
+                    </button>
+                </div>
+                
+                <div id="kmzFileInfo" class="hidden bg-gray-100 p-4 rounded-md mb-4">
+                    <h3 class="font-semibold text-lg mb-2">File Terpilih</h3>
+                    <div id="kmzFileName" class="text-gray-700"></div>
+                    <div id="kmzFileSize" class="text-gray-500 text-sm"></div>
+                </div>
+                
+                <div class="flex justify-between">
+                    <button id="step3BackBtn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                        Kembali
+                    </button>
+                    <button id="step3NextBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Lanjut
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4: Result -->
+            <div id="step4" class="step-container hidden">
+                <h2 class="text-xl font-semibold mb-4">Langkah 4: Hasil</h2>
+                <p class="mb-4 text-gray-600">Berikut adalah hasil integrasi foto ke dalam KMZ.</p>
+                
+                <div id="matchingResultContainer" class="mb-4">
+                    <h3 class="font-semibold mb-2">Hasil Pencocokan</h3>
+                    <div id="matchingResultList" class="max-h-96 overflow-y-auto border border-gray-200 rounded-md p-4 bg-gray-50">
+                        <div class="text-center text-gray-500">Memuat hasil pencocokan...</div>
+                    </div>
+                </div>
+                
+                <div id="summaryContainer" class="mb-4 bg-blue-50 p-4 rounded-md">
+                    <h3 class="font-semibold mb-2">Ringkasan</h3>
+                    <ul class="text-gray-700">
+                        <li id="totalFolders">Total folder: -</li>
+                        <li id="totalPhotos">Total foto yang diambil: -</li>
+                        <li id="totalMatched">Total foto yang berhasil dicocokkan: -</li>
+                        <li id="totalUnmatched">Total foto yang tidak berhasil dicocokkan: -</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4 p-3 bg-gray-50 rounded">
+                    <label class="inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="useRandomPhotosCheckbox" class="form-checkbox h-5 w-5 text-blue-600">
+                      <span class="ml-2 text-gray-700">Gunakan foto acak untuk placemark yang tidak memiliki foto yang cocok</span>
+                    </label>
+                    <p class="mt-2 text-sm text-gray-500">
+                      Jika diaktifkan, placemark yang tidak cocok dengan foto manapun akan diisi dengan foto acak dari kumpulan foto yang tersedia.
+                    </p>
+                  </div>
+                
+                <div class="flex justify-between">
+                    <button id="step4BackBtn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                        Kembali
+                    </button>
+                    <button id="downloadBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        Download KMZ
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-8 text-center text-gray-500 text-sm">
+            <p>© 2025 Pengelola Foto ZIP ke KMZ | Dibuat untuk memudahkan pekerjaan Anda</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
