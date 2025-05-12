@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const zipFileInfo = document.getElementById('zipFileInfo');
     const zipFileName = document.getElementById('zipFileName');
     const zipFileSize = document.getElementById('zipFileSize');
+    const zipStructureType = document.getElementById('zipStructureType');
     const step1NextBtn = document.getElementById('step1NextBtn');
     
     // Step 2 Elements
@@ -211,6 +212,17 @@ document.addEventListener('DOMContentLoaded', function() {
         zipFile = file;
         if (zipFileName) zipFileName.textContent = file.name;
         if (zipFileSize) zipFileSize.textContent = formatBytes(file.size);
+        
+        // Update structure type display
+        const selectedStructure = document.querySelector('input[name="zipStructure"]:checked');
+        if (zipStructureType && selectedStructure) {
+            if (selectedStructure.value === 'folderBased') {
+                zipStructureType.textContent = 'Struktur: ZIP → Folder → Foto';
+            } else {
+                zipStructureType.textContent = 'Struktur: ZIP → Foto Langsung';
+            }
+        }
+        
         if (zipFileInfo) zipFileInfo.classList.remove('hidden');
         if (step1NextBtn) step1NextBtn.disabled = false;
     }
@@ -238,7 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Process ZIP file to extract folders and photos
+    // Process ZIP file to extract folders and photos (DIPERBARUI)
     async function processZipFile() {
         return new Promise(async (resolve, reject) => {
             try {
@@ -249,7 +261,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         const zip = await JSZip.loadAsync(e.target.result);
                         folderPhotos = {};
                         
-                        // Group files by folder
+                        // Check selected ZIP structure
+                        const selectedStructure = document.querySelector('input[name="zipStructure"]:checked');
+                        const isDirectStructure = selectedStructure && selectedStructure.value === 'direct';
+                        
+                        // Group files by folder or by filename
                         let totalItems = Object.keys(zip.files).length;
                         let processedItems = 0;
                         
@@ -258,23 +274,32 @@ document.addEventListener('DOMContentLoaded', function() {
                                 processedItems++;
                                 updateProgress((processedItems / totalItems) * 100);
                                 
-                                // File path structure: folder/subfolder/file.jpg
-                                const pathParts = path.split('/');
-                                
                                 // Skip hidden files and directories
-                                if (pathParts[0].startsWith('__MACOSX') || pathParts[0].startsWith('.')) {
+                                if (path.startsWith('__MACOSX') || path.startsWith('.')) {
                                     continue;
                                 }
                                 
                                 // Skip non-image files
-                                const fileExt = pathParts[pathParts.length - 1].split('.').pop().toLowerCase();
+                                const pathParts = path.split('/');
+                                const fileName = pathParts[pathParts.length - 1];
+                                const fileExt = fileName.split('.').pop().toLowerCase();
+                                
                                 if (!['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(fileExt)) {
                                     continue;
                                 }
                                 
-                                // Use the first folder as the main folder name
-                                const folderName = pathParts[0];
-                                const fileName = pathParts[pathParts.length - 1];
+                                let folderName;
+                                
+                                if (isDirectStructure) {
+                                    // Case 1: Direct structure (ZIP → foto)
+                                    // Use filename without extension as folder name
+                                    folderName = fileName.substring(0, fileName.lastIndexOf('.'));
+                                } else {
+                                    // Case 2: Folder structure (ZIP → folder → foto)
+                                    // Use the first folder as the main folder name
+                                    if (pathParts.length < 2) continue; // Skip files in root
+                                    folderName = pathParts[0];
+                                }
                                 
                                 if (!folderPhotos[folderName]) {
                                     folderPhotos[folderName] = {
@@ -299,10 +324,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         for (const folder in folderPhotos) {
                             folderPhotos[folder].photos.sort((a, b) => a.name.localeCompare(b.name));
                             
-                            // Default to the 4th photo if it exists, otherwise the last photo
+                            // Default selection logic
                             const photoCount = folderPhotos[folder].photos.length;
                             if (photoCount > 0) {
-                                folderPhotos[folder].selectedIndex = Math.min(3, photoCount - 1);
+                                if (isDirectStructure) {
+                                    // For direct structure, always select the first (and only) photo
+                                    folderPhotos[folder].selectedIndex = 0;
+                                } else {
+                                    // For folder structure, select the 4th photo or last if less than 4
+                                    folderPhotos[folder].selectedIndex = Math.min(3, photoCount - 1);
+                                }
                             }
                         }
                         
@@ -320,10 +351,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // STEP 2: MANAGE PHOTOS
-    // =====================
+    // STEP 2: MANAGE PHOTOS (DIPERBARUI)
+    // ===================================
 
-    // Update folder list in Step 2
+    // Update folder list in Step 2 (DIPERBARUI)
     function updateFolderList() {
         if (!folderList) return;
         
@@ -336,6 +367,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Check if this is direct structure
+        const selectedStructure = document.querySelector('input[name="zipStructure"]:checked');
+        const isDirectStructure = selectedStructure && selectedStructure.value === 'direct';
+        
         folderKeys.sort().forEach(folderName => {
             const folder = folderPhotos[folderName];
             const photoCount = folder.photos.length;
@@ -345,20 +380,27 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const folderItem = document.createElement('div');
             folderItem.className = 'mb-4 p-3 bg-white rounded shadow-sm';
+            
+            // Different display for direct vs folder structure
+            const displayName = isDirectStructure ? 
+                `${folderName} (dari nama file)` : 
+                `${folderName} (folder)`;
+            
             folderItem.innerHTML = `
                 <div class="flex items-center justify-between mb-2">
-                    <h4 class="font-semibold">${folderName}</h4>
+                    <h4 class="font-semibold">${displayName}</h4>
                     <span class="text-gray-500 text-sm">${photoCount} foto</span>
                 </div>
                 <div class="mb-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Pilih foto untuk digunakan:</label>
-                    <select class="folder-photo-select w-full p-2 border border-gray-300 rounded" data-folder="${folderName}">
+                    <select class="folder-photo-select w-full p-2 border border-gray-300 rounded" data-folder="${folderName}" ${isDirectStructure ? 'disabled' : ''}>
                         ${folder.photos.map((photo, index) => `
                             <option value="${index}" ${index === folder.selectedIndex ? 'selected' : ''}>
                                 ${index + 1}. ${photo.name}
                             </option>
                         `).join('')}
                     </select>
+                    ${isDirectStructure ? '<p class="text-xs text-gray-500 mt-1">Otomatis dipilih (struktur langsung)</p>' : ''}
                 </div>
                 <div class="preview mt-2 flex justify-center bg-gray-100 rounded photo-preview-container">
                     ${photoCount > 0 ? 
@@ -370,17 +412,19 @@ document.addEventListener('DOMContentLoaded', function() {
             
             folderList.appendChild(folderItem);
             
-            // Add event listener to the select dropdown
-            const select = folderItem.querySelector('.folder-photo-select');
-            select.addEventListener('change', (e) => {
-                const selectedIndex = parseInt(e.target.value);
-                folderPhotos[folderName].selectedIndex = selectedIndex;
-                
-                // Update preview
-                const previewContainer = folderItem.querySelector('.preview');
-                const selectedPhoto = folder.photos[selectedIndex];
-                previewContainer.innerHTML = `<img src="data:${selectedPhoto.type};base64,${selectedPhoto.data}" alt="Preview" class="h-40 object-contain">`;
-            });
+            // Add event listener to the select dropdown (only for folder structure)
+            if (!isDirectStructure) {
+                const select = folderItem.querySelector('.folder-photo-select');
+                select.addEventListener('change', (e) => {
+                    const selectedIndex = parseInt(e.target.value);
+                    folderPhotos[folderName].selectedIndex = selectedIndex;
+                    
+                    // Update preview
+                    const previewContainer = folderItem.querySelector('.preview');
+                    const selectedPhoto = folder.photos[selectedIndex];
+                    previewContainer.innerHTML = `<img src="data:${selectedPhoto.type};base64,${selectedPhoto.data}" alt="Preview" class="h-40 object-contain">`;
+                });
+            }
         });
     }
 
@@ -426,6 +470,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateFolderList();
         });
     }
+
     // Go back to Step 1
     if (step2BackBtn) {
         step2BackBtn.addEventListener('click', () => {
@@ -738,213 +783,213 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-// Create the resulting KMZ file with unique placemarks and green icons
-async function createResultKmz() {
-    return new Promise(async (resolve, reject) => {
-        try {
-            if (!resultKMZ || !resultKMZ.zip || !resultKMZ.kmlPath) {
-                throw new Error('KMZ file structure tidak valid.');
-            }
-            
-            const zip = resultKMZ.zip;
-            const kmlPath = resultKMZ.kmlPath;
-            
-            // Get the original KML content to extract Document and Folder structure
-            let kmlContent = resultKMZ.kmlContent;
-            
-            // Parse the KML to create a new clean KML
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(kmlContent, 'text/xml');
-            
-            // Create a new clean KML structure
-            const newKmlDoc = parser.parseFromString('<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"></kml>', 'text/xml');
-            
-            // Copy the Document element and its basic properties (no styles)
-            let originalDocument = xmlDoc.getElementsByTagName('Document')[0];
-            let newDocument = newKmlDoc.createElement('Document');
-            newKmlDoc.documentElement.appendChild(newDocument);
-            
-            // Copy essential Document properties like name if they exist
-            if (originalDocument.getElementsByTagName('name')[0]) {
-                const docName = originalDocument.getElementsByTagName('name')[0].cloneNode(true);
-                newDocument.appendChild(docName);
-            }
-            
-            // Create a folder for images
-            const imagesFolder = 'images/';
-            zip.folder(imagesFolder);
-            
-            // Extract all original placemarks
-            const placemarkElements = xmlDoc.getElementsByTagName('Placemark');
-            
-            // Create a new Folder to hold placemarks
-            const folder = newKmlDoc.createElement('Folder');
-            const folderName = newKmlDoc.createElement('name');
-            folderName.textContent = 'Placemarks with Photos';
-            folder.appendChild(folderName);
-            newDocument.appendChild(folder);
-            
-            // Create map to track unique placemarks by name to avoid duplicates
-            const placemarkMap = new Map();
-            
-            // First, collect all placemarks with their associated photos (if any)
-            for (let i = 0; i < placemarkElements.length; i++) {
-                const originalPlacemark = placemarkElements[i];
-                const nameElement = originalPlacemark.getElementsByTagName('name')[0];
+    // Create the resulting KMZ file with unique placemarks and green icons
+    async function createResultKmz() {
+        return new Promise(async (resolve, reject) => {
+            try {
+                if (!resultKMZ || !resultKMZ.zip || !resultKMZ.kmlPath) {
+                    throw new Error('KMZ file structure tidak valid.');
+                }
                 
-                if (nameElement) {
-                    const placemarkName = nameElement.textContent.trim();
-                    const originalPoint = originalPlacemark.getElementsByTagName('Point')[0];
+                const zip = resultKMZ.zip;
+                const kmlPath = resultKMZ.kmlPath;
+                
+                // Get the original KML content to extract Document and Folder structure
+                let kmlContent = resultKMZ.kmlContent;
+                
+                // Parse the KML to create a new clean KML
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(kmlContent, 'text/xml');
+                
+                // Create a new clean KML structure
+                const newKmlDoc = parser.parseFromString('<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"></kml>', 'text/xml');
+                
+                // Copy the Document element and its basic properties (no styles)
+                let originalDocument = xmlDoc.getElementsByTagName('Document')[0];
+                let newDocument = newKmlDoc.createElement('Document');
+                newKmlDoc.documentElement.appendChild(newDocument);
+                
+                // Copy essential Document properties like name if they exist
+                if (originalDocument.getElementsByTagName('name')[0]) {
+                    const docName = originalDocument.getElementsByTagName('name')[0].cloneNode(true);
+                    newDocument.appendChild(docName);
+                }
+                
+                // Create a folder for images
+                const imagesFolder = 'images/';
+                zip.folder(imagesFolder);
+                
+                // Extract all original placemarks
+                const placemarkElements = xmlDoc.getElementsByTagName('Placemark');
+                
+                // Create a new Folder to hold placemarks
+                const folder = newKmlDoc.createElement('Folder');
+                const folderName = newKmlDoc.createElement('name');
+                folderName.textContent = 'Placemarks with Photos';
+                folder.appendChild(folderName);
+                newDocument.appendChild(folder);
+                
+                // Create map to track unique placemarks by name to avoid duplicates
+                const placemarkMap = new Map();
+                
+                // First, collect all placemarks with their associated photos (if any)
+                for (let i = 0; i < placemarkElements.length; i++) {
+                    const originalPlacemark = placemarkElements[i];
+                    const nameElement = originalPlacemark.getElementsByTagName('name')[0];
                     
-                    // Skip if no Point geometry
-                    if (!originalPoint) continue;
+                    if (nameElement) {
+                        const placemarkName = nameElement.textContent.trim();
+                        const originalPoint = originalPlacemark.getElementsByTagName('Point')[0];
+                        
+                        // Skip if no Point geometry
+                        if (!originalPoint) continue;
+                        
+                        // Extract coordinates to create a unique key for the placemark
+                        const coordsElement = originalPoint.getElementsByTagName('coordinates')[0];
+                        let coords = '';
+                        if (coordsElement) {
+                            coords = coordsElement.textContent.trim();
+                        }
+                        
+                        const uniqueKey = `${placemarkName}_${coords}`;
+                        
+                        // Find matched photos for this placemark
+                        const matchedPhoto = matchedPhotos.find(photo => 
+                            photo.matched && photo.placemarkName === placemarkName
+                        );
+                        
+                        // Store information needed to create the placemark
+                        placemarkMap.set(uniqueKey, {
+                            name: placemarkName,
+                            point: originalPoint,
+                            photo: matchedPhoto
+                        });
+                    }
+                }
+                
+                // Check if we need to include unmatched placemarks with random photos
+                const useRandomPhotos = document.getElementById('useRandomPhotosCheckbox') && 
+                                        document.getElementById('useRandomPhotosCheckbox').checked;
+                
+                // Create a pool of photos that can be used for random assignment
+                const availablePhotos = matchedPhotos.filter(photo => photo.photoData);
+                
+                // Now create unique placemarks
+                for (const [uniqueKey, placemarkInfo] of placemarkMap.entries()) {
+                    // Create a new clean Placemark
+                    const newPlacemark = newKmlDoc.createElement('Placemark');
                     
-                    // Extract coordinates to create a unique key for the placemark
-                    const coordsElement = originalPoint.getElementsByTagName('coordinates')[0];
-                    let coords = '';
-                    if (coordsElement) {
-                        coords = coordsElement.textContent.trim();
+                    // 1. Copy name
+                    const name = newKmlDoc.createElement('name');
+                    name.textContent = placemarkInfo.name;
+                    newPlacemark.appendChild(name);
+                    
+                    // 2. Copy geometry (Point with coordinates)
+                    if (placemarkInfo.point) {
+                        const newPoint = placemarkInfo.point.cloneNode(true);
+                        newPlacemark.appendChild(newPoint);
                     }
                     
-                    const uniqueKey = `${placemarkName}_${coords}`;
+                    // 3. Create a clean Style
+                    const style = newKmlDoc.createElement('Style');
+                    const balloonStyle = newKmlDoc.createElement('BalloonStyle');
+                    const text = newKmlDoc.createElement('text');
                     
-                    // Find matched photos for this placemark
-                    const matchedPhoto = matchedPhotos.find(photo => 
-                        photo.matched && photo.placemarkName === placemarkName
-                    );
+                    // Determine if we have a photo to use
+                    let usePhoto = null;
+                    let photoSource = '';
                     
-                    // Store information needed to create the placemark
-                    placemarkMap.set(uniqueKey, {
-                        name: placemarkName,
-                        point: originalPoint,
-                        photo: matchedPhoto
-                    });
+                    if (placemarkInfo.photo) {
+                        // Use matched photo
+                        usePhoto = placemarkInfo.photo;
+                        photoSource = `Foto dari folder: ${usePhoto.folderName}`;
+                    } else if (useRandomPhotos && availablePhotos.length > 0) {
+                        // Use random photo
+                        const randomIndex = Math.floor(Math.random() * availablePhotos.length);
+                        usePhoto = availablePhotos[randomIndex];
+                        photoSource = `Foto acak dari: ${usePhoto.folderName}`;
+                    }
+                    
+                    if (usePhoto) {
+                        // Create a file name for the photo
+                        const photoFileName = `${placemarkInfo.name.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
+                        const photoPath = imagesFolder + photoFileName;
+                        
+                        // Add the photo to the ZIP
+                        const photoData = base64ToArrayBuffer(usePhoto.photoData);
+                        zip.file(photoPath, photoData);
+                        
+                        // Create clean CDATA content with photo
+                        text.textContent = `
+                            <![CDATA[
+                            <h3>${placemarkInfo.name}</h3>
+                            <p><img src="${photoPath}" width="300" /></p>
+                            <p>${photoSource}</p>
+                            ]]>
+                        `;
+                    } else {
+                        // No photo
+                        text.textContent = `
+                            <![CDATA[
+                            <h3>${placemarkInfo.name}</h3>
+                            <p>Tidak ada foto yang cocok untuk placemark ini.</p>
+                            ]]>
+                        `;
+                    }
+                    
+                    balloonStyle.appendChild(text);
+                    style.appendChild(balloonStyle);
+                    
+                    // Add IconStyle with green icon for all placemarks
+                    const iconStyle = newKmlDoc.createElement('IconStyle');
+                    const icon = newKmlDoc.createElement('Icon');
+                    const href = newKmlDoc.createElement('href');
+                    href.textContent = 'http://maps.google.com/mapfiles/kml/paddle/grn-blank.png';
+                    icon.appendChild(href);
+                    iconStyle.appendChild(icon);
+                    style.appendChild(iconStyle);
+                    
+                    newPlacemark.appendChild(style);
+                    
+                    // Add the clean placemark to the folder
+                    folder.appendChild(newPlacemark);
                 }
+                
+                // Serialize the new KML document
+                const serializer = new XMLSerializer();
+                const newKmlContent = serializer.serializeToString(newKmlDoc);
+                
+                // Update the KML file in the ZIP
+                zip.file(kmlPath, newKmlContent);
+                
+                // Generate the ZIP file
+                const content = await zip.generateAsync({ type: 'blob' });
+                
+                // Create a download link
+                const url = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = kmzFile.name.replace('.kmz', '_with_photos.kmz');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                resolve();
+            } catch (error) {
+                reject(error);
             }
-            
-            // Check if we need to include unmatched placemarks with random photos
-            const useRandomPhotos = document.getElementById('useRandomPhotosCheckbox') && 
-                                    document.getElementById('useRandomPhotosCheckbox').checked;
-            
-            // Create a pool of photos that can be used for random assignment
-            const availablePhotos = matchedPhotos.filter(photo => photo.photoData);
-            
-            // Now create unique placemarks
-            for (const [uniqueKey, placemarkInfo] of placemarkMap.entries()) {
-                // Create a new clean Placemark
-                const newPlacemark = newKmlDoc.createElement('Placemark');
-                
-                // 1. Copy name
-                const name = newKmlDoc.createElement('name');
-                name.textContent = placemarkInfo.name;
-                newPlacemark.appendChild(name);
-                
-                // 2. Copy geometry (Point with coordinates)
-                if (placemarkInfo.point) {
-                    const newPoint = placemarkInfo.point.cloneNode(true);
-                    newPlacemark.appendChild(newPoint);
-                }
-                
-                // 3. Create a clean Style
-                const style = newKmlDoc.createElement('Style');
-                const balloonStyle = newKmlDoc.createElement('BalloonStyle');
-                const text = newKmlDoc.createElement('text');
-                
-                // Determine if we have a photo to use
-                let usePhoto = null;
-                let photoSource = '';
-                
-                if (placemarkInfo.photo) {
-                    // Use matched photo
-                    usePhoto = placemarkInfo.photo;
-                    photoSource = `Foto dari folder: ${usePhoto.folderName}`;
-                } else if (useRandomPhotos && availablePhotos.length > 0) {
-                    // Use random photo
-                    const randomIndex = Math.floor(Math.random() * availablePhotos.length);
-                    usePhoto = availablePhotos[randomIndex];
-                    photoSource = `Foto acak dari: ${usePhoto.folderName}`;
-                }
-                
-                if (usePhoto) {
-                    // Create a file name for the photo
-                    const photoFileName = `${placemarkInfo.name.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-                    const photoPath = imagesFolder + photoFileName;
-                    
-                    // Add the photo to the ZIP
-                    const photoData = base64ToArrayBuffer(usePhoto.photoData);
-                    zip.file(photoPath, photoData);
-                    
-                    // Create clean CDATA content with photo
-                    text.textContent = `
-                        <![CDATA[
-                        <h3>${placemarkInfo.name}</h3>
-                        <p><img src="${photoPath}" width="300" /></p>
-                        <p>${photoSource}</p>
-                        ]]>
-                    `;
-                } else {
-                    // No photo
-                    text.textContent = `
-                        <![CDATA[
-                        <h3>${placemarkInfo.name}</h3>
-                        <p>Tidak ada foto yang cocok untuk placemark ini.</p>
-                        ]]>
-                    `;
-                }
-                
-                balloonStyle.appendChild(text);
-                style.appendChild(balloonStyle);
-                
-                // Add IconStyle with green icon for all placemarks
-                const iconStyle = newKmlDoc.createElement('IconStyle');
-                const icon = newKmlDoc.createElement('Icon');
-                const href = newKmlDoc.createElement('href');
-                href.textContent = 'http://maps.google.com/mapfiles/kml/paddle/grn-blank.png';
-                icon.appendChild(href);
-                iconStyle.appendChild(icon);
-                style.appendChild(iconStyle);
-                
-                newPlacemark.appendChild(style);
-                
-                // Add the clean placemark to the folder
-                folder.appendChild(newPlacemark);
-            }
-            
-            // Serialize the new KML document
-            const serializer = new XMLSerializer();
-            const newKmlContent = serializer.serializeToString(newKmlDoc);
-            
-            // Update the KML file in the ZIP
-            zip.file(kmlPath, newKmlContent);
-            
-            // Generate the ZIP file
-            const content = await zip.generateAsync({ type: 'blob' });
-            
-            // Create a download link
-            const url = URL.createObjectURL(content);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = kmzFile.name.replace('.kmz', '_with_photos.kmz');
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            resolve();
-        } catch (error) {
-            reject(error);
-        }
-    });
-}
-
-// Utility function to convert base64 to ArrayBuffer
-function base64ToArrayBuffer(base64) {
-    const binary_string = window.atob(base64);
-    const len = binary_string.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binary_string.charCodeAt(i);
+        });
     }
-    return bytes.buffer;
-}
+
+    // Utility function to convert base64 to ArrayBuffer
+    function base64ToArrayBuffer(base64) {
+        const binary_string = window.atob(base64);
+        const len = binary_string.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binary_string.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
 });

@@ -55,7 +55,28 @@
             <!-- Step 1: Upload ZIP -->
             <div id="step1" class="step-container active">
                 <h2 class="text-xl font-semibold mb-4">Langkah 1: Upload File ZIP</h2>
-                <p class="mb-4 text-gray-600">Upload file ZIP yang berisi folder-folder dengan foto di dalamnya.</p>
+                <p class="mb-4 text-gray-600">Upload file ZIP yang berisi foto. Pilih struktur file ZIP yang sesuai.</p>
+                
+                <!-- Pilihan Struktur ZIP -->
+                <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 class="font-semibold mb-3 text-blue-800">Pilih Struktur File ZIP</h3>
+                    <div class="space-y-3">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="zipStructure" value="folderBased" class="form-radio h-5 w-5 text-blue-600" checked>
+                            <span class="ml-2 text-gray-700">
+                                <strong>ZIP berisi folder → foto</strong><br>
+                                <small class="text-gray-500">Setiap folder berisi beberapa foto (folder1, folder2, folder3, dll)</small>
+                            </span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="zipStructure" value="direct" class="form-radio h-5 w-5 text-blue-600">
+                            <span class="ml-2 text-gray-700">
+                                <strong>ZIP berisi foto langsung</strong><br>
+                                <small class="text-gray-500">Foto-foto berada langsung di root ZIP (tidak ada folder)</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
                 
                 <div id="zipDropzone" class="dropzone mb-4">
                     <div class="mb-3">
@@ -74,6 +95,7 @@
                     <h3 class="font-semibold text-lg mb-2">File Terpilih</h3>
                     <div id="zipFileName" class="text-gray-700"></div>
                     <div id="zipFileSize" class="text-gray-500 text-sm"></div>
+                    <div id="zipStructureType" class="text-blue-600 text-sm mt-2"></div>
                 </div>
                 
                 <div class="flex justify-end">
