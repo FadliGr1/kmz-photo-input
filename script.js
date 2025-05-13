@@ -783,7 +783,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Create the resulting KMZ file with unique placemarks and green icons
+   // Create the resulting KMZ file with unique placemarks and green icons (UPDATED FOR DESCRIPTION)
     async function createResultKmz() {
         return new Promise(async (resolve, reject) => {
             try {
@@ -884,16 +884,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     name.textContent = placemarkInfo.name;
                     newPlacemark.appendChild(name);
                     
-                    // 2. Copy geometry (Point with coordinates)
-                    if (placemarkInfo.point) {
-                        const newPoint = placemarkInfo.point.cloneNode(true);
-                        newPlacemark.appendChild(newPoint);
-                    }
-                    
-                    // 3. Create a clean Style
-                    const style = newKmlDoc.createElement('Style');
-                    const balloonStyle = newKmlDoc.createElement('BalloonStyle');
-                    const text = newKmlDoc.createElement('text');
+                    // 2. Add description with photo (NEW APPROACH)
+                    const description = newKmlDoc.createElement('description');
                     
                     // Determine if we have a photo to use
                     let usePhoto = null;
@@ -907,7 +899,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Use random photo
                         const randomIndex = Math.floor(Math.random() * availablePhotos.length);
                         usePhoto = availablePhotos[randomIndex];
-                        photoSource = `Foto acak dari: ${usePhoto.folderName}`;
+                        photoSource = `Foto acak dari: ${usePhoto.folderName} (dipilih secara acak)`;
                     }
                     
                     if (usePhoto) {
@@ -919,26 +911,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         const photoData = base64ToArrayBuffer(usePhoto.photoData);
                         zip.file(photoPath, photoData);
                         
-                        // Create clean CDATA content with photo
-                        text.textContent = `
-                            <![CDATA[
-                            <h3>${placemarkInfo.name}</h3>
-                            <p><img src="${photoPath}" width="300" /></p>
-                            <p>${photoSource}</p>
-                            ]]>
-                        `;
+                        // Create description with CDATA containing the image
+                        description.innerHTML = `<![CDATA[<img style="max-width:500px;" src="${photoPath}">]]>`;
                     } else {
-                        // No photo
-                        text.textContent = `
-                            <![CDATA[
-                            <h3>${placemarkInfo.name}</h3>
-                            <p>Tidak ada foto yang cocok untuk placemark ini.</p>
-                            ]]>
-                        `;
+                        // No photo available
+                        description.innerHTML = `<![CDATA[Tidak ada foto yang cocok untuk placemark ini.]]>`;
                     }
                     
-                    balloonStyle.appendChild(text);
-                    style.appendChild(balloonStyle);
+                    newPlacemark.appendChild(description);
+                    
+                    // 3. Copy geometry (Point with coordinates)
+                    if (placemarkInfo.point) {
+                        const newPoint = placemarkInfo.point.cloneNode(true);
+                        newPlacemark.appendChild(newPoint);
+                    }
+                    
+                    // 4. Create a clean Style with IconStyle only (no BalloonStyle needed)
+                    const style = newKmlDoc.createElement('Style');
                     
                     // Add IconStyle with green icon for all placemarks
                     const iconStyle = newKmlDoc.createElement('IconStyle');
